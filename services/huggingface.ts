@@ -55,6 +55,15 @@ export async function generateClipart(
 
   if (!response.ok) {
     const errorText = await response.text();
+    if (response.status === 402) {
+      throw new Error('HuggingFace monthly free credits depleted. Please upgrade your plan or wait for credits to reset.');
+    }
+    if (response.status === 401) {
+      throw new Error('Invalid HuggingFace API token. Please check EXPO_PUBLIC_HF_API_TOKEN in your .env file.');
+    }
+    if (response.status === 503) {
+      throw new Error('Model is loading, please try again in ~30 seconds.');
+    }
     throw new Error(`HuggingFace API error (${response.status}): ${errorText}`);
   }
 
