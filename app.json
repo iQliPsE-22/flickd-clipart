@@ -28,6 +28,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Digital Alchemist to access your photos to create clipart.",
+          "cameraPermission": "Allow Digital Alchemist to use your camera to take photos for clipart."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
