@@ -45,6 +45,14 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Digital Alchemist to save generated clipart to your gallery.",
+          "savePhotosPermission": "Allow Digital Alchemist to save generated clipart to your gallery.",
+          "isAccessMediaLocationEnabled": true
+        }
       ]
     ],
     "experiments": {

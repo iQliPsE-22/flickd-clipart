@@ -184,6 +184,7 @@ const styles = StyleSheet.create({
   },
   downloadIcon: {
     width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(110,55,208,0.08)',
   },
   // Empty state
   emptyState: { alignItems: 'center', paddingVertical: 48 },
