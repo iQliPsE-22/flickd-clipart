@@ -164,7 +164,8 @@ async function pollGeneration(
 export async function generateClipart(
   styleName: string,
   customPrompt?: string,
-  imageBase64?: string
+  imageBase64?: string,
+  options?: { transparent?: boolean; intensity?: number }
 ): Promise<string> {
   if (!imageBase64) {
     throw new Error('Please upload an image first before generating clipart.');
@@ -172,10 +173,14 @@ export async function generateClipart(
 
   const apiKey = getApiKey();
 
-  const styleModifier =
-    stylePrompts[styleName] || 'clipart style, clean vector illustration';
-  const basePrompt = customPrompt || 'a beautiful illustration';
-  const fullPrompt = `${basePrompt}, ${styleModifier}, white background, high quality, professional clipart, detailed`;
+  const styleModifier = stylePrompts[styleName] || 'clipart style, clean vector illustration';
+  // Aggressive identity preservation keywords
+  const identityPrompt = 'perfectly match the original photo subject, strict facial resemblance, exact same gender, exact same ethnicity, identical person, preserve original identity';
+  const basePrompt = customPrompt ? `${customPrompt}, ${identityPrompt}` : `${identityPrompt}, a beautiful stunning illustration`;
+  const bgPrompt = options?.transparent ? 'isolated on a transparent background' : 'solid white background';
+  
+  // Model prompt weighting: masterpiece/quality first, then style, then subject constraints
+  const fullPrompt = `(masterpiece), high quality, professional clipart, ${styleModifier}, ${bgPrompt}, ${basePrompt}, highly detailed`;
 
   // Build the generation request body
   const body: Record<string, any> = {
@@ -186,14 +191,19 @@ export async function generateClipart(
     num_images: 1,
     alchemy: true,
     negative_prompt:
-      'blurry, low quality, distorted, watermark, text, signature',
+      'different person, changed gender, morphed face, mutated, bad anatomy, deformed, blurry, low quality, distorted, watermark, text, signature, photorealistic background',
   };
 
   // Upload the source image and use image-to-image
   const initImageId = await uploadInitImage(imageBase64, apiKey);
   body.init_image_id = initImageId;
-  // 0.3 = keep strong resemblance to original, with style applied
-  body.init_strength = 0.3;
+  
+  // Map intensity (0-100) to init_strength (0.9 to 0.3). 
+  // Higher User Intensity = More Style = Lower preservation (0.3)
+  // Lower User Intensity = Less Style = Higher preservation (0.9)
+  const userIntensity = options?.intensity !== undefined ? options.intensity : 15;
+  const mappedStrength = 0.9 - (userIntensity / 100) * 0.6;
+  body.init_strength = Math.max(0.1, Math.min(0.9, parseFloat(mappedStrength.toFixed(2))));
 
   // Create generation
   const createRes = await fetch(`${LEONARDO_API_BASE}/generations`, {
@@ -244,7 +254,7 @@ export async function generateClipart(
     throw new Error('Leonardo image has no URL');
   }
 
-  // Fetch image and convert to base64 data URI
+  // Fetch image
   const imageResponse = await fetch(imageUrl);
   if (!imageResponse.ok) {
     throw new Error(
@@ -252,7 +262,47 @@ export async function generateClipart(
     );
   }
 
-  const blob = await imageResponse.blob();
+  let blob = await imageResponse.blob();
+
+  // Post-process: True Background Removal via Remove.bg API
+  if (options?.transparent) {
+    const removeBgKey = process.env.EXPO_PUBLIC_REMOVE_BG_API_KEY;
+    if (removeBgKey) {
+      try {
+        const base64Input = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result.includes(',') ? result.split(',')[1] : result);
+          };
+          reader.readAsDataURL(blob);
+        });
+
+        const bgRes = await fetch("https://api.remove.bg/v1.0/removebg", {
+          method: "POST",
+          headers: {
+            "X-Api-Key": removeBgKey,
+            "Content-Type": "application/json",
+            "Accept": "image/png",
+          },
+          body: JSON.stringify({ 
+            image_file_b64: base64Input,
+            size: "auto",
+            format: "png",
+          }),
+        });
+        if (bgRes.ok) {
+          blob = await bgRes.blob();
+        } else {
+          console.warn("Remove.bg failed, falling back to original:", await bgRes.text());
+        }
+      } catch (e) {
+        console.warn("Remove.bg fetch error, falling back:", e);
+      }
+    } else {
+      console.warn("No Remove.bg API key found; skipping background removal.");
+    }
+  }
 
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();

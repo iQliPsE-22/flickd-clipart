@@ -36,7 +36,7 @@ interface ImageContextType {
   expectedStylesCount: number;
   setExpectedStylesCount: (val: number) => void;
   /** Trigger a batch generation that updates context states directly */
-  generateBatch: (styles: string[], prompt: string, sourceUri: string) => Promise<void>;
+  generateBatch: (styles: string[], prompt: string, sourceUri: string, options?: { removeBg?: boolean; intensity?: number }) => Promise<void>;
 }
 
 const ImageContext = createContext<ImageContextType | undefined>(undefined);
@@ -50,12 +50,23 @@ export function ImageProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [activePrompt, setActivePrompt] = useState('');
   const [expectedStylesCount, setExpectedStylesCount] = useState(4);
+  const [lastGenerationTime, setLastGenerationTime] = useState<number>(0);
 
-  const generateBatch = async (styles: string[], prompt: string, sourceUri: string) => {
+  const RATE_LIMIT_COOLDOWN_MS = 15000; // 15 seconds cooldown
+
+  const generateBatch = async (styles: string[], prompt: string, sourceUri: string, options?: { removeBg?: boolean; intensity?: number }) => {
+    const now = Date.now();
+    if (now - lastGenerationTime < RATE_LIMIT_COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((RATE_LIMIT_COOLDOWN_MS - (now - lastGenerationTime)) / 1000);
+      Alert.alert('Rate Limited', `Please wait ${remainingSeconds} seconds before generating again to prevent abuse.`);
+      return;
+    }
+
     setIsGenerating(true);
     setProgress(0);
     setActivePrompt(prompt || 'a beautiful illustration');
     setExpectedStylesCount(styles.length);
+    setLastGenerationTime(now);
     
     try {
       let imageBase64;
@@ -70,7 +81,10 @@ export function ImageProvider({ children }: { children: ReactNode }) {
       const allResults: GeneratedImage[] = [];
       const promises = styles.map(async (style) => {
         try {
-          const uri = await generateClipart(style, prompt || undefined, imageBase64);
+          const uri = await generateClipart(style, prompt || undefined, imageBase64, { 
+            transparent: options?.removeBg, 
+            intensity: options?.intensity 
+          });
           const img: GeneratedImage = { uri, title: style, style, timestamp: Date.now() };
           allResults.push(img);
         } catch (error) {

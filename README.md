@@ -1,50 +1,32 @@
-# Welcome to your Expo app 👋
+# Flickd Clipart
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Build a production-quality Android mobile app that allows users to: 
+- Upload their image 
+- Generate clipart-style versions of themselves using AI 
+- Choose between multiple visual styles 
+- Download/share the generated outputs
 
-## Get started
+## Setup Steps
+1. Clone the repository
+2. Run `npm install`
+3. Rename `.env.example` to `.env` and configure your API keys:
+   - `EXPO_PUBLIC_LEONARDO_API_KEY` (Required for primary generative modeling - Phoenix 0.9)
+   - `EXPO_PUBLIC_BGREMOVE_API_KEY` (Required for post-process background removal via remove.bg)
+4. Start the app via `npm run start` (or `npx expo start`)
+5. Build the Android APK using EAS: `eas build -p android --profile preview`
 
-1. Install dependencies
+## Tech Decisions & Architecture
+- **Framework**: React Native with Expo (Expo Router for file-based navigation).
+- **Styling**: Vanilla React Native `StyleSheet` for robust native Android performance.
+- **Generation Engine**: Leonardo AI (Phoenix 0.9) selected for superior image-to-image preservation and stylistic coherence.
+- **Background Removal**: The official `remove.bg` REST API. Replaced Leonardo's native `transparent: true` flag which is incompatible with Phoenix's high-fidelity alchemy configurations.
+- **State Management**: React Context API (`ImageContext`) was utilized to elevate upload and batch generation states globally, allowing users to safely navigate away (e.g., to the Gallery) while the generation elegantly brews in the background.
 
-   ```bash
-   npm install
-   ```
+## Tradeoffs Made
+- **API Key Security**: The `EXPO_PUBLIC_...` keys are exposed structurally due to limitations and constraints in this frontend-only prototype deployment. In a real-world deployed scenario, the AI processing requests would be abstracted entirely behind a secure backend edge function (like Vercel or Supabase) to protect proprietary keys.
+- **Background Removal Approach**: We swapped out the native generator parameter for a two-step post-processing API pipe. While this ensures a perfect alpha channel, it requires parsing and converting the generated binaries to Base64 in-memory, mildly increasing processing latency.
+- **Facial Consistency**: Locked the `init_strength` to `0.25` (lower value = stronger resemblance) mapped dynamically by a custom slider, paired with an aggressive identity-locking prompt (`perfectly match the original photo subject, strict facial resemblance...`). This sacrifices slightly more dramatic "stylization" mutations in favor of the requested high architectural resemblance.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Submission Links
+- **APK Download Link (Drive)**: [INSERT_APK_LINK_HERE]
+- **Screen Recording Walkthrough**: [INSERT_RECORDING_LINK_HERE]

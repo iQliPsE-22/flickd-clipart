@@ -68,7 +68,6 @@ export default function HomeUpload() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.brandContainer}>
             <Ionicons name="brush" size={24} color="#7D48DF" />
@@ -79,7 +78,6 @@ export default function HomeUpload() {
           </View>
         </View>
 
-        {/* Hero */}
         <View style={styles.heroSection}>
           <Text style={styles.eyebrow}>Studio Canvas</Text>
           <Text style={styles.heroTitle}>
@@ -88,7 +86,6 @@ export default function HomeUpload() {
           </Text>
         </View>
 
-        {/* Upload Area */}
         <Pressable
           style={styles.uploadArea}
           onPress={pickImageFromLibrary}
@@ -113,7 +110,6 @@ export default function HomeUpload() {
           </LinearGradient>
         </Pressable>
 
-        {/* Quick Actions */}
         <View style={styles.quickActionsRow}>
           <Pressable style={styles.quickActionCard} onPress={pickImageFromCamera}>
             <View style={styles.quickActionIcon}>
@@ -141,7 +137,6 @@ export default function HomeUpload() {
           )}
         </View>
 
-        {/* Hint */}
         <View style={styles.hintBox}>
           <Ionicons name="bulb" size={24} color="#6e37d0" />
           <Text style={styles.hintText}>

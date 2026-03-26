@@ -1,3 +1,0 @@
-app/image-detail.tsx(47,36): error TS2339: Property 'cacheDirectory' does not exist on type 'typeof import("C:/Users/deepa/Desktop/flickd-clipart/node_modules/expo-file-system/build/index")'.
-app/image-detail.tsx(49,32): error TS2339: Property 'EncodingType' does not exist on type 'typeof import("C:/Users/deepa/Desktop/flickd-clipart/node_modules/expo-file-system/build/index")'.
-app/image-detail.tsx(53,36): error TS2339: Property 'cacheDirectory' does not exist on type 'typeof import("C:/Users/deepa/Desktop/flickd-clipart/node_modules/expo-file-system/build/index")'.

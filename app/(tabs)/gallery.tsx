@@ -52,7 +52,6 @@ export default function Gallery() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.brandContainer}>
             <View style={styles.iconBg}>
@@ -63,7 +62,6 @@ export default function Gallery() {
 
         </View>
 
-        {/* Gallery Grid Section */}
         <View style={styles.gallerySection}>
           <View style={styles.galleryHeader}>
             <View>
@@ -78,7 +76,7 @@ export default function Gallery() {
                     : 'No creations yet. Start by uploading an image!'}
               </Text>
             </View>
-            <Pressable style={styles.regenerateBtn} onPress={() => router.push('/(tabs)')}>
+            <Pressable style={styles.regenerateBtn} onPress={() => router.push('/style-selection')}>
               <Ionicons name="add" size={16} color="#4d525c" />
               <Text style={styles.regenerateBtnText}>New Creation</Text>
             </Pressable>
@@ -129,7 +127,7 @@ export default function Gallery() {
               </View>
               <Text style={styles.emptyTitle}>Your gallery is empty</Text>
               <Text style={styles.emptySubtitle}>Upload an image and generate clipart to see your creations here.</Text>
-              <Pressable onPress={() => router.push('/(tabs)')}>
+              <Pressable onPress={() => router.push('/style-selection')}>
                 <LinearGradient colors={['#6e37d0', '#b28cff']} style={styles.emptyBtn}>
                   <Ionicons name="add" size={20} color="#fff" />
                   <Text style={styles.emptyBtnText}>Create Now</Text>
@@ -139,7 +137,6 @@ export default function Gallery() {
           )}
         </View>
 
-        {/* Prompt Bar removed based on user feedback */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -204,7 +201,6 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(110,55,208,0.08)',
   },
-  // Empty state
   emptyState: { alignItems: 'center', paddingVertical: 48 },
   emptyIcon: {
     width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(110,55,208,0.05)',

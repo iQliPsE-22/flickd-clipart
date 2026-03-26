@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Share, Alert, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Share, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -13,11 +13,13 @@ import { useImageContext } from '@/contexts/image-context';
 export default function ImageDetail() {
   const router = useRouter();
   const { selectedImage, sourceImageUri } = useImageContext();
-  const [isDownloading, setIsDownloading] = React.useState(false);
-  const [isSharing, setIsSharing] = React.useState(false);
-  const [imageError, setImageError] = React.useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
-  // If no image is selected, go back
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [sliderPos, setSliderPos] = useState(0.5); // 50%
+
   useEffect(() => {
     if (!selectedImage) {
       router.back();
@@ -35,7 +37,6 @@ export default function ImageDetail() {
     year: 'numeric',
   });
 
-  /** Convert any image URI to a local file URI */
   const ensureLocalFile = async (uri: string): Promise<string> => {
     if (uri.startsWith('data:')) {
       const base64Data = uri.includes(',') ? uri.split(',')[1] : uri;
@@ -50,7 +51,7 @@ export default function ImageDetail() {
       const { uri: downloadedUri } = await FileSystem.downloadAsync(uri, tempPath);
       return downloadedUri;
     }
-    return uri; // already a local file
+    return uri;
   };
 
   const handleShare = async () => {
@@ -58,7 +59,6 @@ export default function ImageDetail() {
     setIsSharing(true);
     try {
       const localUri = await ensureLocalFile(imageUri);
-
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(localUri, {
           mimeType: 'image/png',
@@ -90,16 +90,68 @@ export default function ImageDetail() {
       }
     } catch (error) {
       console.error('Download error:', error);
-      Alert.alert('Download Failed', 'Could not save the image. Please try again.');
+      Alert.alert('Download Failed', 'Could not save the image.');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleExportSVG = async () => {
+    if (isSharing || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      let base64Data = '';
+      if (imageUri.startsWith('data:')) {
+        base64Data = imageUri.includes(',') ? imageUri : `data:image/png;base64,${imageUri}`;
+      } else {
+        const localUri = await ensureLocalFile(imageUri);
+        const b64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+        base64Data = `data:image/png;base64,${b64}`;
+      }
+
+      const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><image href="${base64Data}" width="1024" height="1024" /></svg>`;
+
+      if (Platform.OS === 'android') {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          const uri = await FileSystem.StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            `flickd_clipart_${Date.now()}.svg`,
+            'image/svg+xml'
+          );
+          await FileSystem.writeAsStringAsync(uri, svgContent, { encoding: FileSystem.EncodingType.UTF8 });
+          Alert.alert('Saved!', 'SVG vector file saved to your device.');
+        } else {
+          Alert.alert('Permission Denied', 'Cannot save without directory access.');
+        }
+      } else {
+        const localSvgPath = FileSystem.cacheDirectory + `clipart_${Date.now()}.svg`;
+        await FileSystem.writeAsStringAsync(localSvgPath, svgContent, { encoding: FileSystem.EncodingType.UTF8 });
+        
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(localSvgPath, { mimeType: 'image/svg+xml', UTI: 'public.svg-image' });
+        } else {
+          Alert.alert('SVG Export generated', `Saved to ${localSvgPath}`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Export SVG Failed');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleTouch = (evt: any) => {
+    const localX = evt.nativeEvent.locationX;
+    if (containerWidth > 0 && localX >= 0 && localX <= containerWidth) {
+      setSliderPos(localX / containerWidth);
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#6e37d0" />
@@ -111,16 +163,35 @@ export default function ImageDetail() {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Main Image Preview */}
         <View style={styles.previewSection}>
-          <View style={styles.imageContainer}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#abadaf', letterSpacing: 1 }}>BEFORE</Text>
+            <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#7D48DF', letterSpacing: 1 }}>AFTER</Text>
+          </View>
+          
+          <View 
+            style={styles.imageContainer}
+            onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+            onStartShouldSetResponder={() => true}
+            onResponderMove={handleTouch}
+            onResponderGrant={handleTouch}
+          >
             {!imageError ? (
-              <Image 
-                source={{ uri: imageUri }} 
-                style={styles.mainImage}
-                onLoad={() => setImageError(false)}
-                onError={() => setImageError(true)}
-              />
+              <>
+                {sourceImageUri && (
+                  <Image source={{ uri: sourceImageUri }} style={StyleSheet.absoluteFillObject} contentFit="cover" pointerEvents="none" />
+                )}
+
+                <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: `${(1 - sliderPos) * 100}%`, overflow: 'hidden' }} pointerEvents="none">
+                  <Image source={{ uri: imageUri }} style={{ width: containerWidth, height: containerWidth, position: 'absolute', right: 0 }} contentFit="cover" onLoad={() => setImageError(false)} onError={() => setImageError(true)} />
+                </View>
+
+                <View style={[styles.sliderLine, { right: `${(1 - sliderPos) * 100}%` }]} pointerEvents="none">
+                  <View style={styles.sliderHandle}>
+                    <Ionicons name="swap-horizontal" size={16} color="#6e37d0" />
+                  </View>
+                </View>
+              </>
             ) : (
               <View style={[styles.mainImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fee2e2' }]}>
                 <Ionicons name="image-outline" size={48} color="#ef4444" style={{opacity: 0.5}} />
@@ -138,41 +209,32 @@ export default function ImageDetail() {
               <Text style={styles.metadataLabel}>GENERATED</Text>
               <Text style={styles.metadataValue}>{imageDate}</Text>
             </View>
-            <View style={[styles.metadataItem, styles.metadataItemFull]}>
-              <Text style={styles.metadataLabel}>RESOLUTION</Text>
-              <Text style={styles.metadataValue}>1024 x 1024</Text>
-            </View>
           </View>
         </View>
 
-        {/* Action Section */}
         <View style={styles.actionSection}>
           <Text style={styles.title}>{imageTitle}</Text>
           <Text style={styles.promptText}>
-            Generated with style: <Text style={styles.promptEmphasis}>"{imageStyle}"</Text>
-            {' using AI'}
+            Generated with style: <Text style={styles.promptEmphasis}>"{imageStyle}"</Text>{' using AI'}
           </Text>
 
-          <View style={styles.primaryActions}>
+          <View style={{ gap: 12, marginBottom: 20 }}>
             <Pressable style={styles.primaryButton} onPress={handleDownload} disabled={isDownloading}>
               <LinearGradient colors={['#6e37d0', '#b28cff']} style={styles.gradientButton}>
-                {isDownloading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Ionicons name="download-outline" size={24} color="#fff" />
-                )}
-                <Text style={styles.primaryButtonText}>{isDownloading ? 'Saving...' : 'Save Image'}</Text>
+                {isDownloading ? <ActivityIndicator color="#fff" /> : <Ionicons name="download-outline" size={24} color="#fff" />}
+                <Text style={styles.primaryButtonText}>{isDownloading ? 'Saving...' : 'Save PNG'}</Text>
               </LinearGradient>
+            </Pressable>
+            
+            <Pressable style={styles.secondaryExportBtn} onPress={handleExportSVG} disabled={isDownloading}>
+              <Ionicons name="logo-closed-captioning" size={20} color="#6e37d0" style={{ transform: [{rotate: '45deg'}] }} />
+              <Text style={styles.secondaryExportText}>Export as Vector (SVG)</Text>
             </Pressable>
           </View>
 
           <View style={styles.secondaryActions}>
             <Pressable style={styles.actionCard} onPress={handleShare} disabled={isSharing}>
-              {isSharing ? (
-                <ActivityIndicator color="#4d525c" size="small" />
-              ) : (
-                <Ionicons name="share-social-outline" size={20} color="#4d525c" />
-              )}
+              {isSharing ? <ActivityIndicator color="#4d525c" size="small" /> : <Ionicons name="share-social-outline" size={20} color="#4d525c" />}
               <Text style={styles.actionCardText}>{isSharing ? 'Sharing...' : 'Share'}</Text>
             </Pressable>
             <Pressable style={styles.actionCard} onPress={() => router.push('/(tabs)/gallery')} disabled={isSharing || isDownloading}>
@@ -208,23 +270,11 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
   },
   brandContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#6e37d0' },
-  // Comparison
-  comparisonSection: { marginBottom: 24 },
-  comparisonLabel: {
-    fontSize: 14, fontWeight: 'bold', color: '#575c66', marginBottom: 12, textAlign: 'center',
-  },
-  comparisonRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
-  },
-  comparisonCard: { flex: 1, alignItems: 'center' },
-  comparisonImage: {
-    width: '100%', aspectRatio: 1, borderRadius: 20, marginBottom: 8, backgroundColor: '#e6e8eb',
-  },
-  comparisonTag: { fontSize: 11, fontWeight: 'bold', color: '#6e37d0', letterSpacing: 0.5 },
-  // Preview
+  
   previewSection: { marginBottom: 32 },
   imageContainer: {
     width: '100%', aspectRatio: 1, borderRadius: 32, overflow: 'hidden',
@@ -232,34 +282,53 @@ const styles = StyleSheet.create({
     shadowColor: '#6e37d0', shadowOpacity: 0.1, shadowRadius: 20, elevation: 10,
   },
   mainImage: { width: '100%', height: '100%' },
+  sliderLine: {
+    position: 'absolute', top: 0, bottom: 0, width: 4, marginLeft: -2,
+    backgroundColor: '#fff', elevation: 5, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sliderHandle: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 8, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 8,
+  },
+
   metadataGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   metadataItem: {
     flex: 1, minWidth: '45%', backgroundColor: '#e6e8eb', padding: 16, borderRadius: 16,
   },
-  metadataItemFull: { minWidth: '100%' },
   metadataLabel: {
     fontSize: 10, fontWeight: 'bold', color: '#abadaf', letterSpacing: 1, marginBottom: 4,
   },
   metadataValue: { fontSize: 16, fontWeight: 'bold', color: '#2c2f31' },
-  // Actions
+  
   actionSection: { flex: 1 },
   title: { fontSize: 28, fontWeight: '800', color: '#2c2f31', marginBottom: 8 },
   promptText: { fontSize: 14, color: '#575c66', lineHeight: 22, marginBottom: 28 },
   promptEmphasis: { fontStyle: 'italic', color: '#6e37d0', fontWeight: '500' },
-  primaryActions: { gap: 16, marginBottom: 20 },
+  
   primaryButton: { borderRadius: 999, overflow: 'hidden' },
   gradientButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 16, gap: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 12,
   },
   primaryButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  secondaryActions: { flexDirection: 'row', gap: 12, marginBottom: 28 },
+  
+  secondaryExportBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 16, gap: 12, borderRadius: 999,
+    backgroundColor: 'rgba(110,55,208,0.08)', borderWidth: 1, borderColor: '#e4d8ff',
+  },
+  secondaryExportText: { color: '#6e37d0', fontSize: 16, fontWeight: 'bold' },
+
+  secondaryActions: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   actionCard: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#dee2ee', paddingVertical: 14, borderRadius: 16, gap: 8,
   },
   actionCardText: { color: '#4d525c', fontWeight: 'bold' },
+  
   divider: { height: 1, backgroundColor: 'rgba(171,173,175,0.2)', marginBottom: 24 },
+  
   createMoreCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
     padding: 20, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(178,140,255,0.1)',
