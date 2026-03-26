@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -7,12 +7,47 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useImageContext } from '@/contexts/image-context';
 import { SkeletonGrid } from '@/components/SkeletonGrid';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 
 export default function Gallery() {
   const router = useRouter();
-  const { generatedImages, isGenerating, activePrompt, setSelectedImage } = useImageContext();
+  const { generatedImages, isGenerating, activePrompt, setSelectedImage, expectedStylesCount } = useImageContext();
 
   const hasGenerated = generatedImages.length > 0;
+
+  const ensureLocalFile = async (uri: string): Promise<string> => {
+    if (uri.startsWith('data:')) {
+      const base64Data = uri.includes(',') ? uri.split(',')[1] : uri;
+      const localPath = FileSystem.cacheDirectory + `clipart_${Date.now()}.png`;
+      await FileSystem.writeAsStringAsync(localPath, base64Data, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return localPath;
+    }
+    if (uri.startsWith('http')) {
+      const tempPath = FileSystem.cacheDirectory + `clipart_${Date.now()}.png`;
+      const { uri: downloadedUri } = await FileSystem.downloadAsync(uri, tempPath);
+      return downloadedUri;
+    }
+    return uri;
+  };
+
+  const handleDownload = async (img: any) => {
+    try {
+      const localUri = await ensureLocalFile(img.uri);
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status === 'granted') {
+        await MediaLibrary.saveToLibraryAsync(localUri);
+        Alert.alert('Saved!', 'Image saved to your gallery.');
+      } else {
+        Alert.alert('Permission Denied', 'Could not save the image.');
+      }
+    } catch {
+      Alert.alert('Download Failed', 'Could not save the image.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -21,15 +56,11 @@ export default function Gallery() {
         <View style={styles.header}>
           <View style={styles.brandContainer}>
             <View style={styles.iconBg}>
-              <Ionicons name="color-wand" size={24} color="#7D48DF" />
+              <Ionicons name="brush" size={24} color="#7D48DF" />
             </View>
-            <Text style={styles.headerTitle}>Digital Alchemist</Text>
+            <Text style={styles.headerTitle}>Flickd Clipart</Text>
           </View>
-          <View style={styles.headerRight}>
-            <Pressable style={styles.historyBtn}>
-              <Ionicons name="time" size={24} color="#575c66" />
-            </Pressable>
-          </View>
+
         </View>
 
         {/* Gallery Grid Section */}
@@ -54,7 +85,7 @@ export default function Gallery() {
           </View>
 
           {isGenerating ? (
-            <SkeletonGrid />
+            <SkeletonGrid count={expectedStylesCount} />
           ) : hasGenerated ? (
             <View style={styles.grid}>
               {generatedImages.map((img, index) => (
@@ -80,11 +111,11 @@ export default function Gallery() {
                     </View>
                   </View>
                   <View style={styles.cardInfo}>
-                    <View>
-                      <Text style={styles.cardTitle}>{img.title}</Text>
-                      <Text style={styles.cardSubtitle}>{img.style}</Text>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>{img.title}</Text>
+                      <Text style={styles.cardSubtitle} numberOfLines={1}>{img.style}</Text>
                     </View>
-                    <Pressable style={styles.downloadIcon}>
+                    <Pressable style={styles.downloadIcon} onPress={() => handleDownload(img)}>
                       <Ionicons name="download" size={20} color="#6e37d0" />
                     </Pressable>
                   </View>
@@ -108,25 +139,7 @@ export default function Gallery() {
           )}
         </View>
 
-        {/* Prompt Bar — shows real prompt */}
-        {hasGenerated && (
-          <View style={styles.promptBarContainer}>
-            <View style={styles.promptBar}>
-              <Ionicons name="color-wand" size={24} color="#abadaf" />
-              <TextInput 
-                style={styles.promptInput}
-                value={activePrompt || 'a beautiful illustration'}
-                editable={false}
-              />
-              <Pressable onPress={() => router.push('/(tabs)')}>
-                <LinearGradient colors={['#6e37d0', '#b28cff']} style={styles.modifyButton}>
-                  <Ionicons name="star" size={16} color="#fff" />
-                  <Text style={styles.modifyButtonText}>Create New</Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </View>
-        )}
+        {/* Prompt Bar removed based on user feedback */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -155,13 +168,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#dee2ee', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 999,
   },
   regenerateBtnText: { fontWeight: 'bold', color: '#4d525c', fontSize: 14 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  grid: { flexDirection: 'column', gap: 16 },
   gridCard: {
-    width: '48%', backgroundColor: '#fff', borderRadius: 32, padding: 16, marginBottom: 16,
+    width: '100%', backgroundColor: '#fff', borderRadius: 32, padding: 16,
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 4,
   },
   cardImageContainer: {
-    aspectRatio: 1, borderRadius: 24, overflow: 'hidden', marginBottom: 16, backgroundColor: '#e6e8eb',
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 16,
+    backgroundColor: '#e6e8eb',
   },
   cardImage: { width: '100%', height: '100%' },
   cardLoadingBg: {
@@ -199,18 +217,4 @@ const styles = StyleSheet.create({
     borderRadius: 999, gap: 8,
   },
   emptyBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  // Prompt bar
-  promptBarContainer: { alignItems: 'center' },
-  promptBar: {
-    width: '100%', backgroundColor: '#fff', borderRadius: 999, padding: 8, paddingLeft: 24,
-    flexDirection: 'row', alignItems: 'center',
-    shadowColor: '#6e37d0', shadowOpacity: 0.1, shadowRadius: 20, elevation: 8,
-    borderWidth: 1, borderColor: 'rgba(110,55,208,0.1)',
-  },
-  promptInput: { flex: 1, marginHorizontal: 12, fontSize: 14, fontWeight: '500', color: '#2c2f31' },
-  modifyButton: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24,
-    paddingVertical: 12, borderRadius: 999, gap: 8,
-  },
-  modifyButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 
-export function SkeletonGrid() {
+export function SkeletonGrid({ count = 4 }: { count?: number }) {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export function SkeletonGrid() {
 
   return (
     <View style={styles.grid}>
-      {[0, 1, 2, 3].map((item) => (
+      {Array.from({ length: count }).map((_, item) => (
         <View key={item} style={styles.gridCard}>
           <Animated.View style={[styles.cardImageContainer, { opacity }]} />
           <View style={styles.cardInfo}>
@@ -46,22 +46,21 @@ export function SkeletonGrid() {
 
 const styles = StyleSheet.create({
   grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    gap: 16,
   },
   gridCard: {
-    width: '48%',
+    width: '100%',
     backgroundColor: '#fff',
     borderRadius: 32,
     padding: 16,
-    marginBottom: 16,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 4,
   },
   cardImageContainer: {
+    width: '100%',
     aspectRatio: 1,
     borderRadius: 24,
     marginBottom: 16,

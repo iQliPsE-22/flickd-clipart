@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Share, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -7,11 +7,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 import { useImageContext } from '@/contexts/image-context';
 
 export default function ImageDetail() {
   const router = useRouter();
   const { selectedImage, sourceImageUri } = useImageContext();
+  const [isDownloading, setIsDownloading] = React.useState(false);
+  const [isSharing, setIsSharing] = React.useState(false);
+  const [imageError, setImageError] = React.useState(false);
 
   // If no image is selected, go back
   useEffect(() => {
@@ -50,6 +54,8 @@ export default function ImageDetail() {
   };
 
   const handleShare = async () => {
+    if (isSharing || isDownloading) return;
+    setIsSharing(true);
     try {
       const localUri = await ensureLocalFile(imageUri);
 
@@ -65,24 +71,28 @@ export default function ImageDetail() {
       }
     } catch (error) {
       console.error('Share error:', error);
+    } finally {
+      setIsSharing(false);
     }
   };
 
   const handleDownload = async () => {
+    if (isSharing || isDownloading) return;
+    setIsDownloading(true);
     try {
       const localUri = await ensureLocalFile(imageUri);
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(localUri, {
-          mimeType: 'image/png',
-          dialogTitle: 'Save your clipart',
-        });
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status === 'granted') {
+        await MediaLibrary.saveToLibraryAsync(localUri);
+        Alert.alert('Saved!', 'Image saved to your gallery.');
       } else {
-        Alert.alert('Not Available', 'Sharing is not available on this device.');
+        Alert.alert('Permission Denied', 'Could not save the image. Please grant gallery access.');
       }
     } catch (error) {
       console.error('Download error:', error);
       Alert.alert('Download Failed', 'Could not save the image. Please try again.');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -95,34 +105,28 @@ export default function ImageDetail() {
             <Ionicons name="arrow-back" size={24} color="#6e37d0" />
           </Pressable>
           <View style={styles.brandContainer}>
-            <Ionicons name="color-wand" size={24} color="#7D48DF" />
+            <Ionicons name="brush" size={24} color="#7D48DF" />
             <Text style={styles.headerTitle}>Image Detail</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Before / After Comparison */}
-        {sourceImageUri && (
-          <View style={styles.comparisonSection}>
-            <Text style={styles.comparisonLabel}>Original → Generated</Text>
-            <View style={styles.comparisonRow}>
-              <View style={styles.comparisonCard}>
-                <Image source={{ uri: sourceImageUri }} style={styles.comparisonImage} />
-                <Text style={styles.comparisonTag}>Original</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={24} color="#b28cff" />
-              <View style={styles.comparisonCard}>
-                <Image source={{ uri: imageUri }} style={styles.comparisonImage} />
-                <Text style={[styles.comparisonTag, { color: '#10b981' }]}>{imageStyle}</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         {/* Main Image Preview */}
         <View style={styles.previewSection}>
           <View style={styles.imageContainer}>
-            <Image source={{ uri: imageUri }} style={styles.mainImage} />
+            {!imageError ? (
+              <Image 
+                source={{ uri: imageUri }} 
+                style={styles.mainImage}
+                onLoad={() => setImageError(false)}
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <View style={[styles.mainImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fee2e2' }]}>
+                <Ionicons name="image-outline" size={48} color="#ef4444" style={{opacity: 0.5}} />
+                <Text style={{ marginTop: 12, color: '#ef4444', fontWeight: 'bold' }}>Image unavailable or expired</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.metadataGrid}>
@@ -150,20 +154,28 @@ export default function ImageDetail() {
           </Text>
 
           <View style={styles.primaryActions}>
-            <Pressable style={styles.primaryButton} onPress={handleDownload}>
+            <Pressable style={styles.primaryButton} onPress={handleDownload} disabled={isDownloading}>
               <LinearGradient colors={['#6e37d0', '#b28cff']} style={styles.gradientButton}>
-                <Ionicons name="download-outline" size={24} color="#fff" />
-                <Text style={styles.primaryButtonText}>Save Image</Text>
+                {isDownloading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Ionicons name="download-outline" size={24} color="#fff" />
+                )}
+                <Text style={styles.primaryButtonText}>{isDownloading ? 'Saving...' : 'Save Image'}</Text>
               </LinearGradient>
             </Pressable>
           </View>
 
           <View style={styles.secondaryActions}>
-            <Pressable style={styles.actionCard} onPress={handleShare}>
-              <Ionicons name="share-social-outline" size={20} color="#4d525c" />
-              <Text style={styles.actionCardText}>Share</Text>
+            <Pressable style={styles.actionCard} onPress={handleShare} disabled={isSharing}>
+              {isSharing ? (
+                <ActivityIndicator color="#4d525c" size="small" />
+              ) : (
+                <Ionicons name="share-social-outline" size={20} color="#4d525c" />
+              )}
+              <Text style={styles.actionCardText}>{isSharing ? 'Sharing...' : 'Share'}</Text>
             </Pressable>
-            <Pressable style={styles.actionCard} onPress={() => router.push('/(tabs)/gallery')}>
+            <Pressable style={styles.actionCard} onPress={() => router.push('/(tabs)/gallery')} disabled={isSharing || isDownloading}>
               <Ionicons name="images-outline" size={20} color="#4d525c" />
               <Text style={styles.actionCardText}>Gallery</Text>
             </Pressable>
@@ -173,7 +185,7 @@ export default function ImageDetail() {
 
           <Pressable style={styles.createMoreCard} onPress={() => router.push('/style-selection')}>
             <View style={styles.createMoreIcon}>
-              <Ionicons name="color-wand" size={24} color="#6e37d0" />
+              <Ionicons name="brush" size={24} color="#6e37d0" />
             </View>
             <View style={styles.createMoreTextContainer}>
               <Text style={styles.createMoreTitle}>Generate More Styles</Text>

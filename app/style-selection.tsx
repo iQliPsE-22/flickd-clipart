@@ -1,81 +1,65 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, ActivityIndicator, Animated } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as ImagePicker from 'expo-image-picker';
-import { useImageContext, type GeneratedImage } from '@/contexts/image-context';
-import { generateClipart } from '@/services/leonardo';
+import { useImageContext } from "@/contexts/image-context";
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const stylesList = [
-  { name: 'Cartoon', icon: '🎨' },
-  { name: 'Flat Illustration', icon: '📐' },
-  { name: 'Anime', icon: '⚡' },
-  { name: 'Pixel Art', icon: '👾' },
-  { name: 'Sketch / Outline', icon: '✏️' },
+  { 
+    name: "Cartoon", 
+    thumbnail: "https://lh3.googleusercontent.com/aida-public/AB6AXuCwxY0IJGDUFeAVVPITl8ywHYpEu5xesjAXjpDnZAxeRSj6JIi0eRIiHg0X--1TWoiLGSYKeJqWO4-fkSx140xqpqBbGgommU338jScPbI_U1ywLYVg6TRxRwbxAT8SgauuPcHtpzsaPScK7llp_A5wZ5i0FyLDiVp07x1UJuSNbcPs8YJ89np24I8ik8NxuaKrvMw_Gbg5e_v8NVex_Cvv9ZpZMMEeoyaIG0mI78afNF9NRvp3eB6zVqAmd7sdeYiSJ4iUxjz7dUrE" 
+  },
+  { 
+    name: "Flat Illustration", 
+    thumbnail: "https://lh3.googleusercontent.com/aida-public/AB6AXuBIn-m-Pr0qkfw9MwW1Czxcm1luiUYEGYrfcf1_8aaGC5G_XlA2cIkpCjZCyj6b2uf26tVga0Ie4xte1f-tMLZnEs1v1lsWzmIJQilJfY1NTL_edWW-xCfU1N5MQq4Z1fNR2iEr1sdyfSf1_Ye7WtpMc26CfXCvRFGsFJGNgu6KTSUQGGZL25FGN8xgeRbCP2DDbLvEeZTgF-FAc4UMVG1sspEHGMSiT4WC7bMzRf8iVQUSV5_iKgvA8Mqy_stde6Va00KXfzmzB7fV" 
+  },
+  { 
+    name: "Anime", 
+    thumbnail: "https://lh3.googleusercontent.com/aida-public/AB6AXuBeMubvvdH-TVG5i62nuir8Lpt0I90igS8tvIWYNewrWZJ64pZ4uVFB8qb0au21WbIH7UnoegjfSlfHk5Z6X2sj0_IVCtx-l2OTdawyhw-tshhfkD1_pXoa7leA81VPRDDBRrCPdj-WR70qJaSJhTybxaJWOcxhidIFjvleFVJSo8Bw65r3o-0XWV6rau0bVcA9oHLB3S59ZgeUu5VU8lGvyBrRaVZZvavMCNaAQWm49CLXHwjKlPBylt_E50DFNboEFtPEB6SB3t9u" 
+  },
+  { 
+    name: "Pixel Art", 
+    thumbnail: "https://lh3.googleusercontent.com/aida-public/AB6AXuA79C7yUDAZdjzTXDqOHAUIVeq1JQljqCtyBHz1qhJZifM2oIvlyN_JTNLCKbcDYRbCD2Q3SULHqb09xKiq1g1tazizenTX9ABa_1MwE4NoqjA6mRTt_JbCFIbUNCZ97maSokIKTTSCY9twmdXpOMoOx76lkISIM3tNRIEaSDYGmeV0kjH46brw5cMGI6cuvQyhnpp2sHTc_d9oVmpBr3i6J0h7dqnRzr3leEYrnu3O_HWRp3cnurW-IhZEZ_Rv_GhakWQnBwEiVVw2" 
+  },
+  { 
+    name: "Sketch / Outline", 
+    thumbnail: "https://lh3.googleusercontent.com/aida-public/AB6AXuBdC4kMPnVYfC-GnV4xOjZDotqDq7rqbq5JINTj557RCdMBRjJU2PFfYO9Z7tJQzfH4TI8n2ZsyVUYWJP8T1eEs28hHxclz78pXHI88MRAfM1PebYkzZ5eznyl_Tc-n6u7KlG6YtyTvvSm13Gztmi_MNUq4PlKVNQ0XyRd3suJcc3Pa_3nQcQMrYdRFXNfW_6E8y2YCOAoscE_WVfG3HW160wf-B5Ic4yvJdOY0niz-yo7CAsu8V3J0Do9fD4E-y_bOcoGvjIdahx-e" 
+  },
 ];
-
-/** Skeleton card while a style is generating */
-function SkeletonCard({ label }: { label: string }) {
-  const animValue = React.useRef(new Animated.Value(0.3)).current;
-
-  React.useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(animValue, { toValue: 0.7, duration: 900, useNativeDriver: true }),
-        Animated.timing(animValue, { toValue: 0.3, duration: 900, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-
-  return (
-    <View style={styles.resultCard}>
-      <Animated.View style={[styles.resultCardImgSkeleton, { opacity: animValue }]} />
-      <Text style={styles.resultCardTitle}>{label}</Text>
-      <Text style={styles.resultCardSub}>Generating...</Text>
-    </View>
-  );
-}
 
 export default function StyleSelection() {
   const router = useRouter();
   const {
     sourceImageUri,
     setSourceImageUri,
-    setGeneratedImages,
-    setIsGenerating,
-    setProgress,
-    setActivePrompt,
-    setSelectedImage,
+    generateBatch,
   } = useImageContext();
 
-  const [selectedStyles, setSelectedStyles] = useState<string[]>(stylesList.map(s => s.name));
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [completedCount, setCompletedCount] = useState(0);
-  const [results, setResults] = useState<Map<string, GeneratedImage | 'loading' | null>>(new Map());
+  const [selectedStyles, setSelectedStyles] = useState<string[]>(
+    stylesList.map((s) => s.name)
+  );
+  const [customPrompt, setCustomPrompt] = useState("");
 
   const toggleStyle = (name: string) => {
-    setSelectedStyles(prev =>
-      prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
+    setSelectedStyles((prev) =>
+      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
     );
   };
 
-  const selectAll = () => {
-    if (selectedStyles.length === stylesList.length) {
-      setSelectedStyles([]);
-    } else {
-      setSelectedStyles(stylesList.map(s => s.name));
-    }
-  };
-
-  /** Let user pick a different image */
   const handleChangeImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -83,389 +67,315 @@ export default function StyleSelection() {
 
     if (!result.canceled && result.assets[0]) {
       setSourceImageUri(result.assets[0].uri);
-      // Clear previous results
-      setResults(new Map());
-      setCompletedCount(0);
     }
   };
 
   const handleGenerate = async () => {
     if (!sourceImageUri) {
-      Alert.alert('No Image', 'Please upload or capture an image first.');
+      Alert.alert("No Image", "Please upload or capture an image first.");
       return;
     }
     if (selectedStyles.length === 0) {
-      Alert.alert('No Styles Selected', 'Please select at least one alchemy style.');
+      Alert.alert("No Styles Selected", "Please select at least one style.");
       return;
     }
 
-    setIsLoading(true);
-    setIsGenerating(true);
-    setProgress(0);
-    setCompletedCount(0);
-    setActivePrompt(customPrompt || 'a beautiful illustration');
-
-    const initialMap = new Map<string, GeneratedImage | 'loading' | null>();
-    selectedStyles.forEach(s => initialMap.set(s, 'loading'));
-    setResults(initialMap);
-
-    try {
-      let imageBase64: string | undefined;
-      try {
-        imageBase64 = await FileSystem.readAsStringAsync(sourceImageUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-      } catch (err) {
-        Alert.alert('Error', 'Could not read the selected image. Please try a different one.');
-        setIsLoading(false);
-        setIsGenerating(false);
-        return;
-      }
-
-      const allResults: GeneratedImage[] = [];
-      let completed = 0;
-
-      const promises = selectedStyles.map(async (style) => {
-        try {
-          const uri = await generateClipart(style, customPrompt || undefined, imageBase64);
-          const img: GeneratedImage = { uri, title: style, style, timestamp: Date.now() };
-          allResults.push(img);
-          setResults(prev => {
-            const next = new Map(prev);
-            next.set(style, img);
-            return next;
-          });
-        } catch (error: any) {
-          console.warn(`Failed to generate ${style}:`, error);
-          setResults(prev => {
-            const next = new Map(prev);
-            next.set(style, null);
-            return next;
-          });
-        }
-        completed++;
-        setCompletedCount(completed);
-        setProgress(Math.round((completed / selectedStyles.length) * 100));
-      });
-
-      await Promise.all(promises);
-
-      setGeneratedImages(allResults);
-      setIsGenerating(false);
-      setProgress(100);
-    } catch (error) {
-      Alert.alert('Generation Failed', 'Something went wrong. Please try again.');
-      console.error('Generation error:', error);
-    } finally {
-      setIsLoading(false);
-      setIsGenerating(false);
-    }
+    generateBatch(selectedStyles, customPrompt, sourceImageUri);
+    router.replace("/(tabs)/gallery");
   };
-
-  const completedResults = Array.from(results.entries()).filter(
-    ([_, v]) => v !== null && v !== 'loading'
-  ) as [string, GeneratedImage][];
-
-  const hasAnyResult = completedResults.length > 0 || isLoading;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#6e37d0" />
+            <Ionicons name="arrow-back" size={24} color="#7D48DF" />
           </Pressable>
-          <View style={styles.brandContainer}>
-            <Ionicons name="color-wand" size={24} color="#7D48DF" />
-            <Text style={styles.headerTitle}>Style Selection</Text>
-          </View>
-          <View style={{ width: 40 }} />
+          <Text style={styles.headerTitle}>Clipart Generator</Text>
         </View>
+        <View style={styles.avatar}>
+          <Ionicons name="person" size={16} color="#7D48DF" />
+        </View>
+      </View>
+      <View style={styles.divider} />
 
-        {/* Source Image Preview with Change button */}
-        <View style={styles.heroSection}>
-          <View style={styles.heroImageWrapper}>
-            <Image
-              source={
-                sourceImageUri
-                  ? { uri: sourceImageUri }
-                  : undefined
-              }
-              style={styles.heroImage}
-            />
-            {sourceImageUri && (
-              <View style={styles.heroOverlay}>
-                <Pressable style={styles.changeImageBtn} onPress={handleChangeImage}>
-                  <Ionicons name="camera-reverse" size={18} color="#fff" />
-                  <Text style={styles.changeImageText}>Change</Text>
-                </Pressable>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Source Image Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>SOURCE IMAGE</Text>
+          <Pressable style={styles.sourceImageContainer} onPress={handleChangeImage}>
+            {sourceImageUri ? (
+              <>
+                <Image source={{ uri: sourceImageUri }} style={styles.sourceImage} />
+                <View style={styles.imageOverlay}>
+                  <View style={styles.changeBadge}>
+                    <Ionicons name="camera-reverse" size={16} color="#fff" />
+                    <Text style={styles.changeBadgeText}>Change</Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={styles.uploadPrompt}>
+                <Ionicons name="cloud-upload" size={32} color="#abadaf" />
+                <Text style={styles.uploadPromptText}>Tap to select image</Text>
               </View>
             )}
-          </View>
-          {!sourceImageUri && (
-            <Pressable style={styles.uploadPrompt} onPress={handleChangeImage}>
-              <Ionicons name="cloud-upload" size={32} color="#6e37d0" />
-              <Text style={styles.uploadPromptText}>Tap to select an image</Text>
-            </Pressable>
-          )}
+          </Pressable>
         </View>
 
-        {/* Style Selection */}
-        <View style={styles.styleSection}>
-          <View style={styles.styleSectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Choose Styles</Text>
-              <Text style={styles.sectionSubtitle}>
-                {selectedStyles.length}/{stylesList.length} selected
-              </Text>
-            </View>
-            <Pressable style={styles.selectAllBtn} onPress={selectAll}>
-              <Text style={styles.selectAllText}>
-                {selectedStyles.length === stylesList.length ? 'Deselect All' : 'Select All'}
-              </Text>
-            </Pressable>
-          </View>
+        {/* Config Section */}
+        <View style={styles.configContainer}>
+          <Text style={styles.sectionLabel}>CUSTOM INSTRUCTIONS</Text>
+          <TextInput
+            style={styles.textArea}
+            placeholder="Add specific details like 'soft pastel colors' or 'vibrant bold layouts'..."
+            placeholderTextColor="#abadaf"
+            value={customPrompt}
+            onChangeText={setCustomPrompt}
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
 
-          <View style={styles.styleGrid}>
+        {/* Aesthetic Grid */}
+        <View style={styles.section}>
+          <Text style={styles.mainHeading}>Select Aesthetic</Text>
+          <Text style={styles.subHeading}>Choose a visual direction for your clipart generation.</Text>
+
+          <View style={styles.grid}>
             {stylesList.map((item) => {
               const isActive = selectedStyles.includes(item.name);
               return (
                 <Pressable
                   key={item.name}
-                  style={[styles.styleChip, isActive && styles.styleChipActive]}
+                  style={styles.card}
                   onPress={() => toggleStyle(item.name)}
                 >
-                  <Text style={styles.styleChipIcon}>{item.icon}</Text>
-                  <Text style={[styles.styleChipText, isActive && styles.styleChipTextActive]}>
+                  <View style={[styles.cardImageWrapper, isActive && styles.cardImageWrapperActive]}>
+                    <Image source={{ uri: item.thumbnail }} style={styles.cardImage} />
+                    {isActive && (
+                      <View style={styles.activeCheck}>
+                        <Ionicons name="checkmark" size={16} color="#fff" style={{ fontWeight: 'bold' }} />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.cardTitle, isActive && styles.cardTitleActive]}>
                     {item.name}
                   </Text>
-                  {isActive && <Ionicons name="checkmark-circle" size={18} color="#6e37d0" />}
                 </Pressable>
               );
             })}
           </View>
         </View>
 
-        {/* Prompt */}
-        <View style={styles.configSection}>
-          <View style={styles.configCard}>
-            <Text style={styles.configTitle}>Describe your vision</Text>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. a cute golden retriever puppy"
-                placeholderTextColor="#abadaf"
-                value={customPrompt}
-                onChangeText={setCustomPrompt}
-                multiline
-              />
-              <Ionicons name="color-wand" size={20} color="#abadaf" style={styles.inputIcon} />
-            </View>
-          </View>
-        </View>
-
         {/* Generate Button */}
-        <View style={styles.ctaSection}>
-          <Pressable onPress={handleGenerate} disabled={isLoading || !sourceImageUri || selectedStyles.length === 0}>
-            <LinearGradient
-              colors={isLoading || !sourceImageUri || selectedStyles.length === 0 ? ['#a0a0a0', '#c0c0c0'] : ['#6e37d0', '#b28cff']}
-              style={styles.generateButton}
-            >
-              {isLoading ? (
-                <View style={styles.buttonContentRow}>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <Text style={styles.generateButtonText}>
-                    Generating {completedCount}/{selectedStyles.length}...
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.buttonContentRow}>
-                  <Ionicons name="sparkles" size={22} color="#fff" />
-                  <Text style={styles.generateButtonText}>
-                    {selectedStyles.length === 0
-                      ? 'Select a Style'
-                      : `Generate ${selectedStyles.length} Style${selectedStyles.length !== 1 ? 's' : ''}`}
-                  </Text>
-                </View>
-              )}
-            </LinearGradient>
+        <View style={styles.footer}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.generateBtn,
+              pressed && { transform: [{ scale: 0.98 }] },
+              (!sourceImageUri || selectedStyles.length === 0) && styles.generateBtnDisabled
+            ]}
+            onPress={handleGenerate}
+            disabled={!sourceImageUri || selectedStyles.length === 0}
+          >
+            <Text style={styles.generateBtnText}>Generate Clipart</Text>
+            <Ionicons name="color-wand" size={20} color="#fff" />
           </Pressable>
-
-          {/* Progress bar during generation */}
-          {isLoading && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${Math.round((completedCount / selectedStyles.length) * 100)}%` },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressText}>
-                {completedCount === selectedStyles.length
-                  ? 'All done! ✨'
-                  : `Generating style ${completedCount + 1} of ${selectedStyles.length}...`}
-              </Text>
-            </View>
-          )}
+          <Text style={styles.etaText}>Estimated generation time: ~12 seconds</Text>
         </View>
-
-        {/* Results Grid */}
-        {hasAnyResult && (
-          <View style={styles.resultsSection}>
-            <Text style={styles.resultsSectionTitle}>Results</Text>
-            <View style={styles.resultsGrid}>
-              {selectedStyles.map((styleName) => {
-                const value = results.get(styleName);
-                if (value === 'loading') {
-                  return <SkeletonCard key={styleName} label={styleName} />;
-                }
-                if (value && typeof value === 'object' && value.uri) {
-                  return (
-                    <Pressable
-                      key={styleName}
-                      style={styles.resultCard}
-                      onPress={() => {
-                        setSelectedImage(value);
-                        router.push('/image-detail');
-                      }}
-                    >
-                      <Image source={{ uri: value.uri }} style={styles.resultCardImg} />
-                      <Text style={styles.resultCardTitle}>{styleName}</Text>
-                      <Text style={[styles.resultCardSub, { color: '#10b981' }]}>Tap to view</Text>
-                    </Pressable>
-                  );
-                }
-                if (value === null) {
-                  return (
-                    <View key={styleName} style={styles.resultCard}>
-                      <View style={[styles.resultCardImgSkeleton, { backgroundColor: '#fecaca' }]}>
-                        <Ionicons name="alert-circle" size={24} color="#ef4444" />
-                      </View>
-                      <Text style={styles.resultCardTitle}>{styleName}</Text>
-                      <Text style={[styles.resultCardSub, { color: '#ef4444' }]}>Failed</Text>
-                    </View>
-                  );
-                }
-                return null;
-              })}
-            </View>
-
-            {!isLoading && completedResults.length > 0 && (
-              <Pressable onPress={() => router.push('/(tabs)/gallery')}>
-                <LinearGradient colors={['#6e37d0', '#b28cff']} style={styles.viewGalleryBtn}>
-                  <Ionicons name="images" size={20} color="#fff" />
-                  <Text style={styles.viewGalleryText}>View All in Gallery</Text>
-                </LinearGradient>
-              </Pressable>
-            )}
-          </View>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#f5f6f8' },
-  container: { padding: 24, paddingBottom: 40 },
+  safeArea: { flex: 1, backgroundColor: "#f8f9fa" },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24,
+    height: 64,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    backgroundColor: "rgba(255,255,255,0.9)",
   },
-  backButton: { padding: 8, marginLeft: -8 },
-  brandContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#6e37d0' },
-  // Hero
-  heroSection: { marginBottom: 24 },
-  heroImageWrapper: {
-    borderRadius: 24, overflow: 'hidden', backgroundColor: '#e6e8eb',
-  },
-  heroImage: { width: '100%', aspectRatio: 16 / 9, borderRadius: 24 },
-  heroOverlay: {
-    position: 'absolute', bottom: 12, right: 12,
-  },
-  changeImageBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 14, paddingVertical: 8,
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 16 },
+  backButton: {
+    padding: 8,
     borderRadius: 999,
+    backgroundColor: "#f3f4f5",
   },
-  changeImageText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+  headerTitle: { fontSize: 18, fontWeight: "600", color: "#191c1d" },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#d8dde9",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+  divider: { height: 1, backgroundColor: "#f3f4f5", width: "100%" },
+  container: { padding: 24, paddingBottom: 60 },
+  section: { marginBottom: 32 },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    color: "#5c616b",
+    marginBottom: 16,
+  },
+  sourceImageContainer: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  sourceImage: { width: "100%", height: "100%" },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+  },
+  changeBadge: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  changeBadgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   uploadPrompt: {
-    alignItems: 'center', justifyContent: 'center', padding: 40,
-    backgroundColor: '#fff', borderRadius: 24, borderWidth: 2,
-    borderColor: 'rgba(110,55,208,0.15)', borderStyle: 'dashed',
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  uploadPromptText: { marginTop: 12, color: '#6e37d0', fontWeight: 'bold', fontSize: 15 },
-  // Styles
-  styleSection: { marginBottom: 24 },
-  styleSectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16,
+  uploadPromptText: {
+    fontSize: 14,
+    color: '#abadaf',
+    fontWeight: 'bold',
+    marginTop: 12,
   },
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#2c2f31', marginBottom: 4 },
-  sectionSubtitle: { fontSize: 13, color: '#575c66' },
-  selectAllBtn: {
-    backgroundColor: 'rgba(110,55,208,0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999,
+  configContainer: {
+    backgroundColor: "#f3f4f5",
+    padding: 24,
+    borderRadius: 16,
+    marginBottom: 32,
   },
-  selectAllText: { color: '#6e37d0', fontWeight: 'bold', fontSize: 12 },
-  styleGrid: { gap: 8 },
-  styleChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#fff', padding: 14, borderRadius: 16,
-    borderWidth: 2, borderColor: 'transparent',
+  textArea: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    height: 120,
+    fontSize: 14,
+    color: "#191c1d",
+    shadowColor: "#000",
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  styleChipActive: { borderColor: '#6e37d0', backgroundColor: 'rgba(110,55,208,0.04)' },
-  styleChipIcon: { fontSize: 20 },
-  styleChipText: { flex: 1, fontWeight: '600', color: '#575c66', fontSize: 15 },
-  styleChipTextActive: { color: '#6e37d0', fontWeight: 'bold' },
-  // Config
-  configSection: { marginBottom: 24 },
-  configCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20 },
-  configTitle: { fontSize: 16, fontWeight: 'bold', color: '#2c2f31', marginBottom: 12 },
-  inputContainer: { position: 'relative' },
-  input: {
-    backgroundColor: '#eff1f3', borderRadius: 12, padding: 14, paddingRight: 48,
-    fontSize: 14, fontWeight: '500', color: '#2c2f31', minHeight: 50,
+  mainHeading: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#191c1d",
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
-  inputIcon: { position: 'absolute', right: 16, top: 14 },
-  // CTA
-  ctaSection: { alignItems: 'center', marginBottom: 24 },
-  generateButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 36, paddingVertical: 18, borderRadius: 999, gap: 10,
-    width: '100%',
+  subHeading: {
+    fontSize: 16,
+    color: "#5c616b",
+    marginBottom: 24,
   },
-  generateButtonText: { color: '#fff', fontSize: 17, fontWeight: '800' },
-  buttonContentRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
-  progressContainer: { width: '100%', marginTop: 16, alignItems: 'center' },
-  progressTrack: {
-    width: '100%', height: 6, backgroundColor: '#e6e8eb', borderRadius: 3, overflow: 'hidden',
+  card: {
+    width: "48%",
+    marginBottom: 20,
   },
-  progressFill: {
-    height: '100%', backgroundColor: '#6e37d0', borderRadius: 3,
+  cardImageWrapper: {
+    width: "100%",
+    aspectRatio: 4 / 5,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#ffffff",
+    borderWidth: 2,
+    borderColor: "transparent",
+    marginBottom: 12,
   },
-  progressText: { marginTop: 8, fontSize: 12, color: '#575c66', fontWeight: '600' },
-  // Results
-  resultsSection: { marginTop: 8 },
-  resultsSectionTitle: { fontSize: 22, fontWeight: '800', color: '#2c2f31', marginBottom: 16 },
-  resultsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  resultCard: {
-    width: '48%', backgroundColor: '#fff', borderRadius: 20, padding: 10, marginBottom: 12,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 3,
+  cardImageWrapperActive: {
+    borderColor: "#6429c5",
+    shadowColor: "#6429c5",
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  resultCardImg: { width: '100%', aspectRatio: 1, borderRadius: 14, marginBottom: 8 },
-  resultCardImgSkeleton: {
-    width: '100%', aspectRatio: 1, borderRadius: 14, marginBottom: 8,
-    backgroundColor: '#dadde0', alignItems: 'center', justifyContent: 'center',
+  cardImage: { width: "100%", height: "100%" },
+  activeCheck: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#6429c5",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  resultCardTitle: { fontSize: 13, fontWeight: 'bold', color: '#2c2f31' },
-  resultCardSub: { fontSize: 11, color: '#abadaf', fontWeight: '600', marginTop: 2 },
-  viewGalleryBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 16, borderRadius: 999, gap: 10, marginTop: 8,
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#5c616b",
+    paddingHorizontal: 4,
   },
-  viewGalleryText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  cardTitleActive: {
+    color: "#191c1d",
+  },
+  footer: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  generateBtn: {
+    width: "100%",
+    backgroundColor: "#7d48df",
+    paddingVertical: 20,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    shadowColor: "#7d48df",
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 6,
+  },
+  generateBtnDisabled: {
+    backgroundColor: "#abadaf",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  generateBtnText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  etaText: {
+    marginTop: 16,
+    fontSize: 12,
+    color: "#5c616b",
+    fontWeight: "500",
+  },
 });
