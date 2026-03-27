@@ -1,23 +1,23 @@
+import { useImageContext } from "@/contexts/image-context";
+import { Ionicons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system/legacy";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import * as MediaLibrary from "expo-media-library";
+import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   Share,
-  Alert,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
-import * as MediaLibrary from "expo-media-library";
-import { useImageContext } from "@/contexts/image-context";
 
 export default function ImageDetail() {
   const router = useRouter();
@@ -95,33 +95,18 @@ export default function ImageDetail() {
     if (isSharing || isDownloading) return;
     setIsDownloading(true);
     try {
-      const localUri = await ensureLocalFile(imageUri);
-
-      // Primary path: use Sharing (works reliably in standalone APKs)
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(localUri, {
-          mimeType: "image/png",
-          dialogTitle: "Save Clipart PNG",
-        });
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Please allow storage access to save images.",
+        );
         return;
       }
 
-      // Fallback: try MediaLibrary (may fail in some APK builds)
-      try {
-        const { status } = await MediaLibrary.requestPermissionsAsync(true);
-        if (status === "granted") {
-          await MediaLibrary.saveToLibraryAsync(localUri);
-          Alert.alert("Saved!", "Image saved to your gallery.");
-          return;
-        }
-      } catch {
-        // MediaLibrary not available, fall through
-      }
-
-      Alert.alert(
-        "Save Unavailable",
-        "Could not access the gallery. Use the Share button instead.",
-      );
+      const localUri = await ensureLocalFile(imageUri);
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      Alert.alert("Success", "Image saved to your gallery!");
     } catch (error: any) {
       console.error("Download error:", error);
       Alert.alert(
@@ -152,21 +137,24 @@ export default function ImageDetail() {
 
       const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><image href="${base64Data}" width="1024" height="1024" /></svg>`;
 
-      // Write SVG to cache then share (works reliably in standalone APKs)
+      // Write SVG to cache then save to media library
       const localSvgPath =
         FileSystem.cacheDirectory + `flickd_clipart_${Date.now()}.svg`;
       await FileSystem.writeAsStringAsync(localSvgPath, svgContent, {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(localSvgPath, {
-          mimeType: "image/svg+xml",
-          dialogTitle: "Save Clipart SVG",
-        });
-      } else {
-        Alert.alert("SVG Ready", "SVG file generated but sharing is unavailable on this device.");
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Please allow storage access to save SVG images.",
+        );
+        return;
       }
+
+      await MediaLibrary.saveToLibraryAsync(localSvgPath);
+      Alert.alert("Success", "SVG file saved to your gallery!");
     } catch (e: any) {
       console.error(e);
       Alert.alert(
