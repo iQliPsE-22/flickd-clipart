@@ -10,7 +10,7 @@ import { useImageContext } from '@/contexts/image-context';
 
 export default function HomeUpload() {
   const router = useRouter();
-  const { sourceImageUri, setSourceImageUri, generatedImages, setSelectedImage } = useImageContext();
+  const { sourceImageUri, setSourceImageUri, setSourceImageBase64, generatedImages, setSelectedImage } = useImageContext();
 
   const pickImageFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -24,6 +24,7 @@ export default function HomeUpload() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -35,6 +36,9 @@ export default function HomeUpload() {
       }
 
       setSourceImageUri(asset.uri);
+      if (asset.base64) {
+        setSourceImageBase64(asset.base64);
+      }
       router.push('/style-selection');
     }
   };
@@ -50,6 +54,7 @@ export default function HomeUpload() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -61,6 +66,9 @@ export default function HomeUpload() {
       }
 
       setSourceImageUri(asset.uri);
+      if (asset.base64) {
+        setSourceImageBase64(asset.base64);
+      }
       router.push('/style-selection');
     }
   };
@@ -87,11 +95,16 @@ export default function HomeUpload() {
         </View>
 
         <Pressable
-          style={styles.uploadArea}
-          onPress={pickImageFromLibrary}
+          style={[styles.uploadArea, sourceImageUri ? styles.uploadAreaActive : styles.uploadAreaEmpty]}
+          onPress={sourceImageUri ? () => router.push('/style-selection') : pickImageFromLibrary}
         >
           {sourceImageUri ? (
-            <Image source={{ uri: sourceImageUri }} style={styles.uploadPreview} />
+            <>
+              <Image source={{ uri: sourceImageUri }} style={styles.uploadPreview} />
+              <LinearGradient colors={['#6e37d0', '#b28cff']} style={styles.uploadButton}>
+                <Text style={styles.uploadButtonText}>Continue to Styles ➔</Text>
+              </LinearGradient>
+            </>
           ) : (
             <>
               <View style={styles.uploadIconContainer}>
@@ -101,40 +114,28 @@ export default function HomeUpload() {
               <Text style={styles.uploadSubtitle}>
                 Upload a clear photo of an object or character to begin the alchemy.
               </Text>
+              <LinearGradient colors={['#6e37d0', '#b28cff']} style={styles.uploadButton}>
+                <Text style={styles.uploadButtonText}>Select Photo</Text>
+              </LinearGradient>
             </>
           )}
-          <LinearGradient colors={['#6e37d0', '#b28cff']} style={styles.uploadButton}>
-            <Text style={styles.uploadButtonText}>
-              {sourceImageUri ? 'Change Photo' : 'Select Photo'}
-            </Text>
-          </LinearGradient>
         </Pressable>
 
         <View style={styles.quickActionsRow}>
+          <Pressable style={styles.quickActionCard} onPress={pickImageFromLibrary}>
+            <View style={styles.quickActionIcon}>
+              <Ionicons name="images" size={24} color="#6e37d0" />
+            </View>
+            <Text style={styles.quickActionText}>
+              {sourceImageUri ? 'Change Photo' : 'Browse Gallery'}
+            </Text>
+          </Pressable>
           <Pressable style={styles.quickActionCard} onPress={pickImageFromCamera}>
             <View style={styles.quickActionIcon}>
               <Ionicons name="camera" size={24} color="#6e37d0" />
             </View>
             <Text style={styles.quickActionText}>Use Camera</Text>
           </Pressable>
-          {sourceImageUri ? (
-            <Pressable
-              style={styles.quickActionCard}
-              onPress={() => router.push('/style-selection')}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(110,55,208,0.15)' }]}>
-                <Ionicons name="brush" size={24} color="#6e37d0" />
-              </View>
-              <Text style={styles.quickActionText}>Generate Now</Text>
-            </Pressable>
-          ) : (
-            <Pressable style={styles.quickActionCard} onPress={pickImageFromLibrary}>
-              <View style={styles.quickActionIcon}>
-                <Ionicons name="images" size={24} color="#6e37d0" />
-              </View>
-              <Text style={styles.quickActionText}>Browse Gallery</Text>
-            </Pressable>
-          )}
         </View>
 
         <View style={styles.hintBox}>
@@ -151,7 +152,7 @@ export default function HomeUpload() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f5f6f8' },
-  container: { padding: 24, paddingBottom: 40 },
+  container: { padding: 24, paddingBottom: 80 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40,
   },
@@ -169,8 +170,13 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 36, fontWeight: '800', color: '#2c2f31', lineHeight: 44 },
   heroTitleHighlight: { color: '#6226c3' },
   uploadArea: {
-    backgroundColor: '#fff', borderRadius: 32, padding: 28, alignItems: 'center',
-    borderWidth: 2, borderColor: 'rgba(171,173,175,0.15)', borderStyle: 'dashed', marginBottom: 20,
+    backgroundColor: '#fff', borderRadius: 32, padding: 28, alignItems: 'center', marginBottom: 20,
+  },
+  uploadAreaEmpty: {
+    borderWidth: 2, borderColor: 'rgba(171,173,175,0.2)', borderStyle: 'dashed',
+  },
+  uploadAreaActive: {
+    elevation: 12, shadowColor: '#6e37d0', shadowOpacity: 0.12, shadowRadius: 24, shadowOffset: { width: 0, height: 12 },
   },
   uploadPreview: { width: '100%', aspectRatio: 1, borderRadius: 20, marginBottom: 16 },
   uploadIconContainer: {
@@ -183,10 +189,11 @@ const styles = StyleSheet.create({
   uploadButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   quickActionsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   quickActionCard: {
-    flex: 1, backgroundColor: '#eff1f3', borderRadius: 24, padding: 20, alignItems: 'center', gap: 12,
+    flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 20, alignItems: 'center', gap: 12,
+    elevation: 4, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
   },
   quickActionIcon: {
-    width: 48, height: 48, backgroundColor: '#fff', borderRadius: 16,
+    width: 48, height: 48, backgroundColor: '#f8f9fa', borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
   },
   quickActionText: { fontWeight: 'bold', color: '#2c2f31', fontSize: 13 },

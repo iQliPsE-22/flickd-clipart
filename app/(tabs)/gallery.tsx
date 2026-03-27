@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -37,15 +37,32 @@ export default function Gallery() {
   const handleDownload = async (img: any) => {
     try {
       const localUri = await ensureLocalFile(img.uri);
-      const { status } = await MediaLibrary.requestPermissionsAsync(true);
-      if (status === 'granted') {
-        await MediaLibrary.saveToLibraryAsync(localUri);
-        Alert.alert('Saved!', 'Image saved to your gallery.');
-      } else {
-        Alert.alert('Permission Denied', 'Could not save the image.');
+
+      // Primary path: use Sharing (works reliably in standalone APKs)
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(localUri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Save Clipart PNG',
+        });
+        return;
       }
-    } catch {
-      Alert.alert('Download Failed', 'Could not save the image.');
+
+      // Fallback: try MediaLibrary
+      try {
+        const { status } = await MediaLibrary.requestPermissionsAsync(true);
+        if (status === 'granted') {
+          await MediaLibrary.saveToLibraryAsync(localUri);
+          Alert.alert('Saved!', 'Image saved to your gallery.');
+          return;
+        }
+      } catch {
+        // MediaLibrary not available in this build
+      }
+
+      Alert.alert('Save Unavailable', 'Could not access the gallery.');
+    } catch (error: any) {
+      console.error('Download error:', error);
+      Alert.alert('Download Failed', error?.message || 'Could not save the image.');
     }
   };
 
@@ -151,8 +168,6 @@ const styles = StyleSheet.create({
   brandContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBg: { padding: 8, borderRadius: 12, backgroundColor: 'rgba(178,140,255,0.2)' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#6e37d0' },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  historyBtn: { padding: 4 },
   gallerySection: { marginBottom: 40 },
   galleryHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
@@ -168,7 +183,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'column', gap: 16 },
   gridCard: {
     width: '100%', backgroundColor: '#fff', borderRadius: 32, padding: 16,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 4,
+    shadowColor: '#6e37d0', shadowOpacity: 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 6,
   },
   cardImageContainer: {
     width: '100%',
@@ -192,7 +207,7 @@ const styles = StyleSheet.create({
     fontSize: 10, fontWeight: 'bold', color: '#2c2f31', letterSpacing: 0.5, textTransform: 'uppercase',
   },
   cardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#2c2f31' },
+  cardTitle: { fontSize: 18, fontWeight: '900', color: '#2c2f31', letterSpacing: -0.5 },
   cardSubtitle: {
     fontSize: 10, fontWeight: 'bold', color: '#abadaf', letterSpacing: 1,
     textTransform: 'uppercase', marginTop: 2,
@@ -211,6 +226,7 @@ const styles = StyleSheet.create({
   emptyBtn: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 14,
     borderRadius: 999, gap: 8,
+    shadowColor: '#6e37d0', shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
   },
-  emptyBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  emptyBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16, letterSpacing: 0.5 },
 });

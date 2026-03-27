@@ -11,31 +11,22 @@ export interface GeneratedImage {
 }
 
 interface ImageContextType {
-  /** The URI of the image picked by the user */
   sourceImageUri: string | null;
   setSourceImageUri: (uri: string | null) => void;
-  /** Base64-encoded source image for API calls */
   sourceImageBase64: string | null;
   setSourceImageBase64: (b64: string | null) => void;
-  /** Generated clipart images from HuggingFace */
   generatedImages: GeneratedImage[];
   setGeneratedImages: (images: GeneratedImage[]) => void;
-  /** Currently selected generated image for detail view */
   selectedImage: GeneratedImage | null;
   setSelectedImage: (image: GeneratedImage | null) => void;
-  /** Whether generation is in progress */
   isGenerating: boolean;
   setIsGenerating: (val: boolean) => void;
-  /** Generation progress (0-100) */
   progress: number;
   setProgress: (val: number) => void;
-  /** The prompt the user typed, persisted across screens */
   activePrompt: string;
   setActivePrompt: (p: string) => void;
-  /** Number of styles requested in the latest batch */
   expectedStylesCount: number;
   setExpectedStylesCount: (val: number) => void;
-  /** Trigger a batch generation that updates context states directly */
   generateBatch: (styles: string[], prompt: string, sourceUri: string, options?: { removeBg?: boolean; intensity?: number }) => Promise<void>;
 }
 
@@ -52,7 +43,7 @@ export function ImageProvider({ children }: { children: ReactNode }) {
   const [expectedStylesCount, setExpectedStylesCount] = useState(4);
   const [lastGenerationTime, setLastGenerationTime] = useState<number>(0);
 
-  const RATE_LIMIT_COOLDOWN_MS = 15000; // 15 seconds cooldown
+  const RATE_LIMIT_COOLDOWN_MS = 15000;
 
   const generateBatch = async (styles: string[], prompt: string, sourceUri: string, options?: { removeBg?: boolean; intensity?: number }) => {
     const now = Date.now();
@@ -69,13 +60,15 @@ export function ImageProvider({ children }: { children: ReactNode }) {
     setLastGenerationTime(now);
     
     try {
-      let imageBase64;
-      try {
-        imageBase64 = await FileSystem.readAsStringAsync(sourceUri, { encoding: FileSystem.EncodingType.Base64 });
-      } catch (err) {
-        Alert.alert('Error', 'Could not read the selected image.');
-        setIsGenerating(false);
-        return;
+      let imageBase64 = sourceImageBase64;
+      if (!imageBase64) {
+        try {
+          imageBase64 = await FileSystem.readAsStringAsync(sourceUri, { encoding: FileSystem.EncodingType.Base64 });
+        } catch (err) {
+          Alert.alert('Error', 'Could not read the selected image.');
+          setIsGenerating(false);
+          return;
+        }
       }
 
       const allResults: GeneratedImage[] = [];
@@ -95,7 +88,6 @@ export function ImageProvider({ children }: { children: ReactNode }) {
       await Promise.all(promises);
       
       setGeneratedImages(prev => {
-         // Keep only successful new ones, prepend them so they appear at top
          return [...allResults, ...prev];
       });
       setProgress(100);

@@ -46,7 +46,7 @@ const stylesList = [
 
 export default function StyleSelection() {
   const router = useRouter();
-  const { sourceImageUri, setSourceImageUri, generateBatch } =
+  const { sourceImageUri, setSourceImageUri, setSourceImageBase64, generateBatch } =
     useImageContext();
 
   const [selectedStyles, setSelectedStyles] = useState<string[]>(
@@ -77,10 +77,14 @@ export default function StyleSelection() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
       setSourceImageUri(result.assets[0].uri);
+      if (result.assets[0].base64) {
+        setSourceImageBase64(result.assets[0].base64);
+      }
     }
   };
 
@@ -151,14 +155,14 @@ export default function StyleSelection() {
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: 24,
               backgroundColor: "#fff",
-              padding: 16,
-              borderRadius: 12,
+              padding: 20,
+              borderRadius: 16,
               shadowColor: "#000",
-              shadowOpacity: 0.02,
-              shadowRadius: 4,
-              elevation: 1,
+              shadowOpacity: 0.03,
+              shadowRadius: 8,
+              elevation: 2,
+              marginBottom: 16,
             }}
           >
             <View>
@@ -402,32 +406,29 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   configContainer: {
-    backgroundColor: "#f3f4f5",
-    padding: 24,
-    borderRadius: 16,
     marginBottom: 32,
   },
   textArea: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     height: 120,
-    fontSize: 14,
+    fontSize: 15,
     color: "#191c1d",
     shadowColor: "#000",
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   sliderContainer: {
     backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 28,
     shadowColor: "#000",
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   sliderTouchArea: {
     height: 32,
@@ -485,19 +486,20 @@ const styles = StyleSheet.create({
   cardImageWrapper: {
     width: "100%",
     aspectRatio: 4 / 5,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "#ffffff",
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: "transparent",
     marginBottom: 12,
   },
   cardImageWrapperActive: {
-    borderColor: "#6429c5",
-    shadowColor: "#6429c5",
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 4,
+    borderColor: "#7d48df",
+    shadowColor: "#7d48df",
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   cardImage: { width: "100%", height: "100%" },
   activeCheck: {
@@ -527,8 +529,8 @@ const styles = StyleSheet.create({
   generateBtn: {
     width: "100%",
     backgroundColor: "#7d48df",
-    paddingVertical: 20,
-    borderRadius: 16,
+    paddingVertical: 16,
+    borderRadius: 999,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

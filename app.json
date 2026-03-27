@@ -19,7 +19,18 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ],
+      "package": "com.iqlipse.flickdclipart"
     },
     "web": {
       "output": "static",
@@ -30,8 +41,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Digital Alchemist to access your photos to create clipart.",
-          "cameraPermission": "Allow Digital Alchemist to use your camera to take photos for clipart."
+          "photosPermission": "Allow Flickd Clipart to access your photos to create clipart.",
+          "cameraPermission": "Allow Flickd Clipart to use your camera to take photos for clipart."
         }
       ],
       [
@@ -49,8 +60,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow Digital Alchemist to save generated clipart to your gallery.",
-          "savePhotosPermission": "Allow Digital Alchemist to save generated clipart to your gallery.",
+          "photosPermission": "Allow Flickd Clipart to save generated clipart to your gallery.",
+          "savePhotosPermission": "Allow Flickd Clipart to save generated clipart to your gallery.",
           "isAccessMediaLocationEnabled": true
         }
       ]
@@ -58,6 +69,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fd42eb2d-95cf-4d65-9753-0f81159272c5"
+      }
     }
   }
 }
