@@ -23,11 +23,11 @@ const LEONARDO_API_BASE = 'https://cloud.leonardo.ai/api/rest/v1';
 const LEONARDO_MODEL_ID = '6b645e3a-d64f-4341-a6d8-7a3690fbf042';
 
 const stylePrompts = {
-  'Cartoon': 'cartoon style, bold outlines, vibrant colors, playful, clean vector art, 3D dimensional',
-  'Flat Illustration': 'flat illustration, minimal shadows, clean geometric shapes, modern vector style, editorial minimal',
-  'Anime': 'anime style, cel-shaded, vibrant, detailed line art, Japanese animation style',
-  'Pixel Art': 'pixel art style, 16-bit, retro game aesthetic, pixelated, nostalgic',
-  'Sketch / Outline': 'pencil sketch, hand-drawn outline, black and white line art, minimal shading',
+  'Cartoon': 'extremely exaggerated 3D cartoon style, huge expressive eyes, Pixar style, Disney infinite, hyper-stylized caricature, NOT realistic',
+  'Flat Illustration': '2D flat corporate illustration, vector graphics, solid colors, NO shading, extremely minimal geometric art, Dribbble style',
+  'Anime': 'Studio Ghibli anime style, cel-shaded, vivid Japanese animation, highly detailed 2D anime illustration',
+  'Pixel Art': '8-bit retro gaming pixel art, blocky pixels, strictly 16 colors, perfectly pixelated indie game character, sprite sheet style',
+  'Sketch / Outline': 'rough charcoal pencil sketch, messy lines, purely black and white unfinished drawing, crosshatching, NO color',
 };
 
 function getApiKey() {
@@ -107,7 +107,7 @@ app.post('/api/generate', async (req, res) => {
 
     const apiKey = getApiKey();
     const styleModifier = stylePrompts[styleName] || 'clipart style';
-    const identityPrompt = 'perfectly match original photo subject, strict facial resemblance, same gender, same ethnicity';
+    const identityPrompt = 'maintain the core identity, gender, and ethnicity of the subject but adapt them completely into the requested art style';
     const basePrompt = customPrompt ? `${customPrompt}, ${identityPrompt}` : `${identityPrompt}, stunning illustration`;
     const bgPrompt = options?.transparent ? 'isolated on transparent background' : 'solid white background';
     
